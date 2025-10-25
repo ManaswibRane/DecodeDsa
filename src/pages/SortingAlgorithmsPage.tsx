@@ -74,10 +74,12 @@ function SortingAlgorithmsPage() {
     }, 0);
   };
 
+  /* Commented out to fix Netlify build error (unused variable)
   const handleInputSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputArray.trim()) setShowVisualization(true);
   };
+  */
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200 dark:from-slate-950 dark:via-slate-900 dark:to-gray-900 transition-colors duration-500">
