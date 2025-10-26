@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import Navbar from '../src/components/Navbar';
+import { GitBranch } from "lucide-react";
 
 export default function Page() {
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -104,6 +105,29 @@ export default function Page() {
           description: "Convert infix, prefix, and postfix expressions",
         },
       ],
+    },
+     {
+      title: "Segment Tree",
+      description: "Deep dive into the beauty of Segment trees",
+      icon: GitBranch,
+      color: "from-blue-500 to-cyan-500",
+        algorithms: [
+   {
+      name: "Update Operation",
+      path: "/segment-tree/update",
+      description: "Learn how an update at any index works in segment tree",
+    },
+    {
+      name: "Query Operation",
+      path: "/segment-tree/query",
+      description: "Working out range queries in segment tree",
+    },
+    {
+      name: "Lazy Propogation",
+      path: "/segment-tree/lazy-propogation",
+      description: "Learn how lazy propogation works in segment tree",
+    },
+  ],
     },
   ];
 
