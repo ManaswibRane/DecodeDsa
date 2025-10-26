@@ -171,6 +171,7 @@ function GraphVisualizerPage() {
     "bfs",
     "dfs",
     "dijkstra",
+    "bellman-ford",
   ];
 
   // Helper functions
@@ -853,29 +854,152 @@ function GraphVisualizerPage() {
     addToHistory("🌳 Started Kruskal's Algorithm");
   };
 
+  const runBellmanFord = async () => {
+    if (!graph.isWeighted) {
+      addToHistory("❌ Error: Bellman-Ford algorithm requires a weighted graph");
+      return;
+    }
+
+    if (!startNode) {
+      addToHistory("❌ Error: Please select a start node");
+      return;
+    }
+
+    const startValue = Number(startNode);
+    const startNodeObj = graph.nodes.find((node) => node.value === startValue);
+    if (!startNodeObj) {
+      addToHistory("❌ Error: Start node not found");
+      return;
+    }
+
+    setIsAnimating(true);
+    const steps: any[] = [];
+    const distances = new Map<string, number>();
+    const parents = new Map<string, string | null>();
+
+    // 1. Initialize distances
+    graph.nodes.forEach((node) => {
+      distances.set(
+        node.id,
+        node.id === startNodeObj.id ? 0 : Number.POSITIVE_INFINITY
+      );
+      parents.set(node.id, null);
+    });
+
+    steps.push({
+      type: "start",
+      nodeId: startNodeObj.id,
+      message: `Starting Bellman-Ford from node ${startValue}. Initializing distances.`,
+      distances: new Map(distances),
+    });
+
+    const numNodes = graph.nodes.length;
+
+    // 2. Relax edges repeatedly
+    for (let i = 0; i < numNodes - 1; i++) {
+      let relaxedInIteration = false;
+      steps.push({
+        type: "iteration",
+        message: `--- Iteration ${i + 1} ---`,
+        distances: new Map(distances),
+      });
+
+      for (const edge of graph.edges) {
+        const fromDist = distances.get(edge.from)!;
+        const toDist = distances.get(edge.to)!;
+        const weight = edge.weight || 1;
+
+        steps.push({
+          type: "check",
+          edgeId: edge.id,
+          message: `Checking edge (${graph.nodes.find(n => n.id === edge.from)?.value} -> ${graph.nodes.find(n => n.id === edge.to)?.value})`,
+          distances: new Map(distances),
+        });
+
+        if (fromDist !== Number.POSITIVE_INFINITY && fromDist + weight < toDist) {
+          distances.set(edge.to, fromDist + weight);
+          parents.set(edge.to, edge.from);
+          relaxedInIteration = true;
+
+          const toNode = graph.nodes.find(n => n.id === edge.to)!;
+          steps.push({
+            type: "relax",
+            edgeId: edge.id,
+            nodeId: edge.to,
+            message: `Relaxed edge. New distance to ${toNode.value}: ${fromDist + weight}`,
+            distances: new Map(distances),
+          });
+        }
+      }
+      if (!relaxedInIteration) {
+        steps.push({ type: "iteration", message: "No distances updated in this iteration. Algorithm can stop early.", distances: new Map(distances) });
+        break; // Optimization
+      }
+    }
+
+    // 3. Check for negative weight cycles
+    let negativeCycle = false;
+    for (const edge of graph.edges) {
+      const fromDist = distances.get(edge.from)!;
+      const toDist = distances.get(edge.to)!;
+      const weight = edge.weight || 1;
+
+      if (fromDist !== Number.POSITIVE_INFINITY && fromDist + weight < toDist) {
+        negativeCycle = true;
+        steps.push({
+          type: "negative-cycle",
+          edgeId: edge.id,
+          message: `Negative weight cycle detected at edge (${graph.nodes.find(n => n.id === edge.from)?.value} -> ${graph.nodes.find(n => n.id === edge.to)?.value})!`,
+          distances: new Map(distances),
+        });
+        break;
+      }
+    }
+
+    steps.push({
+      type: "complete",
+      message: negativeCycle ? "Algorithm complete. Negative cycle detected." : "Bellman-Ford algorithm complete.",
+      distances: new Map(distances),
+      parents: new Map(parents),
+      hasNegativeCycle: negativeCycle,
+    });
+
+    setAlgorithmSteps(steps);
+    setCurrentStep(0);
+    addToHistory(`🔔 Started Bellman-Ford from node ${startValue}`);
+  };
+
   // Helper to apply a single step to the graph and log it
   const applyStep = useCallback((step: any, index: number) => {
-    setGraph((prev) => ({
-      ...prev,
-      nodes: prev.nodes.map((node) => ({
+    setGraph((prev) => {
+      const newNodes = prev.nodes.map((node) => ({
         ...node,
         isHighlighted: step.nodeId === node.id,
         isVisited: step.visited?.has(node.id) || false,
         isStart: step.type === "start" && step.nodeId === node.id,
         color: step.sortedOrder?.includes(node.id) ? "#22C55E" : undefined,
         distance: step.distances?.get(node.id),
-      })),
-      edges: prev.edges.map((edge) => ({
+      }));
+
+      const newEdges = prev.edges.map((edge) => ({
         ...edge,
         isHighlighted:
+          step.edgeId === edge.id ||
           (step.edgeFrom === edge.from && step.edgeTo === edge.to) ||
           (step.edgeFrom === edge.to && step.edgeTo === edge.from),
         isVisited:
-        ((step.visited?.has(edge.from) && step.visited?.has(edge.to))
-        || step.mst?.some((e: GraphEdge) => e.id === edge.id)),
+          (step.visited?.has(edge.from) && step.visited?.has(edge.to)) ||
+          step.mst?.some((e: GraphEdge) => e.id === edge.id),
+        color: step.type === 'negative-cycle' && step.edgeId === edge.id ? '#EF4444' : undefined,
+      }));
 
-      })),
-    }));
+      return {
+        ...prev,
+        nodes: newNodes,
+        edges: newEdges,
+      };
+    });
+
     if (step?.message) {
       addToHistory(`📍 Step ${index + 1}: ${step.message}`);
     }
@@ -1029,6 +1153,9 @@ function GraphVisualizerPage() {
         break;
       case "kruskal":
         runKruskal();
+        break;
+      case "bellman-ford":
+        runBellmanFord();
         break;
       default:
         addToHistory(`❌ Algorithm ${selectedAlgorithm} not implemented yet`);
@@ -1532,9 +1659,19 @@ function GraphVisualizerPage() {
                       {algorithmInfo[selectedAlgorithm].name} Complete
                     </span>
                   </div>
-                  <div className="text-green-700 text-sm space-y-1">
+                  <div className="text-green-700 dark:text-green-400 text-sm space-y-2">
+                    {selectedAlgorithm === "bellman-ford" &&
+                      algorithmResult.hasNegativeCycle && (
+                        <div className="text-red-600 dark:text-red-400 p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                          <p className="font-bold">Negative weight cycle detected!</p>
+                          <p>The shortest paths are not well-defined.</p>
+                        </div>
+                      )}
+
                     {(selectedAlgorithm === "dijkstra" ||
-                      selectedAlgorithm === "bfs") &&
+                      selectedAlgorithm === "bfs" ||
+                      (selectedAlgorithm === "bellman-ford" &&
+                        !algorithmResult.hasNegativeCycle)) &&
                       algorithmResult.distances && (
                         <div>
                           <p>
