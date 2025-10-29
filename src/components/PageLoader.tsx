@@ -5,6 +5,7 @@ import {
   Search,
   Database,
   BookOpen,
+  GitBranch,
   Target,
 } from "lucide-react";
 interface PageLoaderProps {
@@ -20,6 +21,7 @@ export const PageLoader: React.FC<PageLoaderProps> = ({ isDark = false }) => {
     { Icon: Target, label: "Arrays" },
     { Icon: Database, label: "Data Structures" },
     { Icon: BookOpen, label: "Operations" },
+    { Icon:GitBranch, label: "SegTree" },
   ];
 
   useEffect(() => {
